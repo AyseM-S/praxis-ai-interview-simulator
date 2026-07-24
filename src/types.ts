@@ -25,3 +25,13 @@ export interface AbstractQuestion extends BaseQuestion {
 }
 
 export type QuestionDTO = TextQuestion | ChartQuestion | AbstractQuestion;
+
+export type AssessmentMode = 'talent_test' | 'face_to_face';
+
+export interface InterviewQuestion {
+  id: string;
+  text: string;
+  interviewer: 'fulya' | 'gokturk' | 'ayse';
+  estimatedTimeSeconds: number;
+}
+

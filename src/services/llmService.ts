@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import type { Schema } from "@google/generative-ai";
-import type { QuestionDTO, QuestionCategory } from "../types";
+import type { QuestionDTO, QuestionCategory, InterviewQuestion } from "../types";
 
 export class QuestionGenerationEngine {
   private genAI: GoogleGenerativeAI;
@@ -151,6 +151,64 @@ Return ONLY a JSON array.`;
         svgContent: { type: SchemaType.STRING }
       },
       required: ["id", "category", "text", "options", "correctAnswer", "estimatedTimeSeconds", "svgContent"]
+    };
+  }
+
+  public async generateInterviewQuestionsAsync(
+    role: string,
+    totalQuestions: number,
+    language: string
+  ): Promise<InterviewQuestion[]> {
+    try {
+      const model = this.genAI.getGenerativeModel({
+        model: "gemini-3.5-flash",
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: SchemaType.ARRAY,
+            items: this.getInterviewSchema()
+          }
+        }
+      });
+
+      const prompt = this.getInterviewPrompt(role, totalQuestions, language);
+      const result = await model.generateContent(prompt);
+      const responseText = result.response.text();
+      const parsed: InterviewQuestion[] = JSON.parse(responseText);
+      return parsed;
+    } catch (error) {
+      console.error("Error generating interview questions:", error);
+      return [];
+    }
+  }
+
+  private getInterviewPrompt(role: string, count: number, language: string) {
+    return `You are a professional HR Panel Coordinator.
+Your task is to generate ${count} interview questions for a candidate applying for the role of: "${role}".
+Target Language: ${language}
+
+The panel consists of three interviewers:
+1. "fulya" (HR Lead): Focuses on behavioral questions, cultural fit, team collaboration, conflict resolution, and soft skills.
+2. "gokturk" (Tech Lead): Focuses on technical expertise, problem-solving, system design, coding logic, and technical challenges related to the role.
+3. "ayse" (Product Manager): Focuses on product design, user-centric thinking, agile methodologies, scoping, planning, and business goals.
+
+Generate exactly ${count} realistic and challenging questions distributed logically among the three panel members.
+Return ONLY a JSON array.`;
+  }
+
+  private getInterviewSchema(): Schema {
+    return {
+      type: SchemaType.OBJECT,
+      properties: {
+        id: { type: SchemaType.STRING },
+        text: { type: SchemaType.STRING },
+        interviewer: { 
+          type: SchemaType.STRING, 
+          description: "Assign the question to the appropriate interviewer: 'fulya' (HR Lead), 'gokturk' (Tech Lead), or 'ayse' (Product Manager)."
+        },
+        estimatedTimeSeconds: { type: SchemaType.NUMBER, description: "Suggested duration to answer this question, usually 45 to 90 seconds." }
+      },
+      required: ["id", "text", "interviewer", "estimatedTimeSeconds"]
     };
   }
 
